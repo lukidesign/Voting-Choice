@@ -72,13 +72,15 @@ class handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _read_body(self):
-        length = int(self.headers.get("Content-Length") or 0)
-        if length <= 0:
-            return {}
-        if length > 1_000_000:
-            return None
         try:
-            return json.loads(self.rfile.read(length).decode("utf-8"))
+            length = int(self.headers.get("Content-Length") or 0)
+            if length > 1_000_000:
+                return None
+            # Vercel Lambda may strip Content-Length; fall back to read-all
+            raw = self.rfile.read(length) if length > 0 else self.rfile.read()
+            if not raw:
+                return {}
+            return json.loads(raw.decode("utf-8"))
         except Exception:
             return None
 
