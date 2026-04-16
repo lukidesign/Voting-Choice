@@ -39,15 +39,22 @@ git push -u origin main
 3. 这一步会自动注入两个环境变量：`KV_REST_API_URL`、`KV_REST_API_TOKEN`
 4. 触发一次重新部署（Deployments → 最新一条 → Redeploy），让函数读取到新环境变量
 
-### 4. （可选）保护"清空"按钮
+### 4. 设置管理员密码（保护"清空"按钮）
 
-在 Vercel 项目设置 → Environment Variables 增加：
+前端会在点击"清空所有投票"时弹窗要求输入密码。后端通过环境变量 `IRUN_RESET_TOKEN` 校验：
 
-```
-IRUN_RESET_TOKEN = 你设的密码
-```
+- **Vercel**：项目 → Settings → Environment Variables → 新增
+  ```
+  Name:  IRUN_RESET_TOKEN
+  Value: 你设的密码（例如 irun2026）
+  ```
+  设置后 Redeploy 一次让函数读到。
+- **本地测试**：启动时带上环境变量
+  ```bash
+  IRUN_RESET_TOKEN=mypass python3 server.py
+  ```
 
-（前端目前没传 token，需要的时候让 Claude 帮你加。）
+> 如果未设置 `IRUN_RESET_TOKEN`，后端不校验，任何人输入任意密码（甚至空）都能清空 —— 务必在线上配置。
 
 ### 后续更新
 
