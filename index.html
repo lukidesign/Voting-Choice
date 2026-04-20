@@ -275,12 +275,12 @@
 <body>
 <div class="container">
   <div class="tabs">
-    <button class="tab-btn active" data-project="irun">iRun Logo</button>
-    <button class="tab-btn" data-project="reim">REIM Logo</button>
+    <button class="tab-btn active" data-project="reim">REIM Logo</button>
+    <button class="tab-btn" data-project="irun">iRun Logo</button>
   </div>
 
   <header>
-    <h1 id="pageTitle">iRun Logo 投票</h1>
+    <h1 id="pageTitle">REIM Logo 投票</h1>
     <p class="subtitle">请选择你最喜欢的设计方案 · 每人最多选 <strong>3</strong> 个</p>
     <p class="subtitle" style="margin-top:6px;font-size:13px;color:#9ca3af;">数据实时同步 · <span id="connStatus">连接中…</span></p>
     <input type="text" id="voterName" class="name-input" placeholder="请输入你的名字" maxlength="20" />
@@ -356,8 +356,8 @@
 
   const MAX_SELECT = 3;
   const POLL_MS = 3000;
-  let currentProject = 'irun';
-  let designs = designsData.irun;
+  let currentProject = 'reim';
+  let designs = designsData.reim;
   let selected = new Set();
   let cachedData = { voters: [] };
 
