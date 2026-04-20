@@ -186,6 +186,7 @@
     top: 24px;
     left: 50%;
     transform: translateX(-50%) translateY(-120%);
+    opacity: 0;
     background: #1f2937;
     color: #fff;
     padding: 12px 20px;
@@ -193,10 +194,15 @@
     font-size: 14px;
     font-weight: 500;
     box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-    transition: transform 0.25s ease;
+    transition: transform 0.25s ease, opacity 0.25s ease;
     z-index: 100;
+    pointer-events: none;
   }
-  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
 
   .results-section {
     margin-top: 48px;
