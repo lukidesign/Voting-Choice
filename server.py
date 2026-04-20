@@ -26,20 +26,36 @@ VALID_IDS = {f"d{i}" for i in range(12)}
 _lock = threading.Lock()
 
 
-def load_data():
+def load_all_data():
+    """Load all projects' data"""
     if not os.path.exists(DATA_FILE):
-        return {"voters": []}
+        return {"irun": {"voters": []}, "reim": {"voters": []}}
     try:
         with open(DATA_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+            # Ensure both projects exist
+            if "irun" not in data:
+                data["irun"] = {"voters": []}
+            if "reim" not in data:
+                data["reim"] = {"voters": []}
+            return data
     except Exception:
-        return {"voters": []}
+        return {"irun": {"voters": []}, "reim": {"voters": []}}
 
 
-def save_data(data):
+def load_data(project="irun"):
+    """Load data for a specific project"""
+    all_data = load_all_data()
+    return all_data.get(project, {"voters": []})
+
+
+def save_data(project, project_data):
+    """Save data for a specific project"""
+    all_data = load_all_data()
+    all_data[project] = project_data
     tmp = DATA_FILE + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+        json.dump(all_data, f, ensure_ascii=False, indent=2)
     os.replace(tmp, DATA_FILE)
 
 
@@ -108,10 +124,16 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        path = unquote(urlparse(self.path).path)
+        parsed = urlparse(self.path)
+        path = unquote(parsed.path)
         if path == "/api/votes":
+            from urllib.parse import parse_qs
+            query = parse_qs(parsed.query)
+            project = (query.get('project') or ['irun'])[0]
+            if project not in ('irun', 'reim'):
+                project = 'irun'
             with _lock:
-                self._json(200, load_data())
+                self._json(200, load_data(project))
             return
         if path == "/" or path == "/index.html":
             self._serve_file("index.html")
@@ -132,6 +154,10 @@ class Handler(BaseHTTPRequestHandler):
             self._json(400, {"error": "invalid_json"})
             return
 
+        project = payload.get("project") or "irun"
+        if project not in ("irun", "reim"):
+            project = "irun"
+
         name = (payload.get("name") or "").strip()
         choices = payload.get("choices") or []
         if not name:
@@ -147,7 +173,7 @@ class Handler(BaseHTTPRequestHandler):
 
         overwrite = bool(payload.get("overwrite"))
         with _lock:
-            data = load_data()
+            data = load_data(project)
             idx = next((i for i, v in enumerate(data["voters"]) if v.get("name") == name), -1)
             if idx >= 0 and not overwrite:
                 self._json(409, {"error": "name_exists", "name": name}); return
@@ -156,7 +182,7 @@ class Handler(BaseHTTPRequestHandler):
                 data["voters"][idx] = record
             else:
                 data["voters"].append(record)
-            save_data(data)
+            save_data(project, data)
         self._json(200, {"ok": True, "voters": data["voters"]})
 
     def do_DELETE(self):
@@ -165,11 +191,14 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
             return
         payload = self._read_json_body() or {}
+        project = payload.get("project") or "irun"
+        if project not in ("irun", "reim"):
+            project = "irun"
         required = os.environ.get("IRUN_RESET_TOKEN")
         if required and payload.get("token") != required:
             self._json(403, {"error": "forbidden"}); return
         with _lock:
-            save_data({"voters": []})
+            save_data(project, {"voters": []})
         self._json(200, {"ok": True})
 
 

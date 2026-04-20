@@ -16,19 +16,22 @@ import urllib.error
 
 KV_URL = os.environ.get("KV_REST_API_URL")
 KV_TOKEN = os.environ.get("KV_REST_API_TOKEN")
-KEY = "irun:votes:v1"
+
+def get_kv_key(project):
+    """Get KV key based on project (irun or reim)"""
+    return f"{project}:votes:v1"
 
 MAX_SELECT = 3
 MAX_NAME_LEN = 20
 VALID_IDS = {f"d{i}" for i in range(12)}
 
 
-def kv_get():
+def kv_get(key):
     """读取存储的投票数据。KV 未配置时返回空（用于本地预览）。"""
     if not KV_URL or not KV_TOKEN:
         return {"voters": []}
     req = urllib.request.Request(
-        f"{KV_URL}/get/{KEY}",
+        f"{KV_URL}/get/{key}",
         headers={"Authorization": f"Bearer {KV_TOKEN}"},
     )
     try:
@@ -42,12 +45,12 @@ def kv_get():
         return {"voters": []}
 
 
-def kv_set(data):
+def kv_set(key, data):
     if not KV_URL or not KV_TOKEN:
         raise RuntimeError("KV not configured")
     payload = json.dumps(data, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(
-        f"{KV_URL}/set/{KEY}",
+        f"{KV_URL}/set/{key}",
         data=payload,
         headers={
             "Authorization": f"Bearer {KV_TOKEN}",
@@ -88,13 +91,24 @@ class handler(BaseHTTPRequestHandler):
         self._json(204, {})
 
     def do_GET(self):
-        self._json(200, kv_get())
+        from urllib.parse import urlparse, parse_qs
+        query = parse_qs(urlparse(self.path).query)
+        project = (query.get('project') or ['irun'])[0]
+        if project not in ('irun', 'reim'):
+            project = 'irun'
+        key = get_kv_key(project)
+        self._json(200, kv_get(key))
 
     def do_POST(self):
         payload = self._read_body()
         if not isinstance(payload, dict):
             self._json(400, {"error": "invalid_json"})
             return
+
+        project = payload.get("project") or "irun"
+        if project not in ("irun", "reim"):
+            project = "irun"
+        key = get_kv_key(project)
 
         name = (payload.get("name") or "").strip()
         choices = payload.get("choices") or []
@@ -116,7 +130,7 @@ class handler(BaseHTTPRequestHandler):
                 return
 
         overwrite = bool(payload.get("overwrite"))
-        data = kv_get()
+        data = kv_get(key)
         idx = next((i for i, v in enumerate(data["voters"]) if v.get("name") == name), -1)
         if idx >= 0 and not overwrite:
             self._json(409, {"error": "name_exists", "name": name})
@@ -129,7 +143,7 @@ class handler(BaseHTTPRequestHandler):
             data["voters"].append(record)
 
         try:
-            kv_set(data)
+            kv_set(key, data)
         except Exception:
             self._json(500, {"error": "kv_write_failed"})
             return
@@ -138,12 +152,17 @@ class handler(BaseHTTPRequestHandler):
 
     def do_DELETE(self):
         payload = self._read_body() or {}
+        project = payload.get("project") or "irun"
+        if project not in ("irun", "reim"):
+            project = "irun"
+        key = get_kv_key(project)
+
         required = os.environ.get("IRUN_RESET_TOKEN")
         if required and payload.get("token") != required:
             self._json(403, {"error": "forbidden"})
             return
         try:
-            kv_set({"voters": []})
+            kv_set(key, {"voters": []})
         except Exception:
             self._json(500, {"error": "kv_write_failed"})
             return
